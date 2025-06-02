@@ -7,45 +7,44 @@
 # Q&A
 
 ### Q: On what chains are the smart contracts going to be deployed?
-ZetaChain, Ethereum, Polygon, Base, BNB Chain
+ZetaChain, Ethereum, Polygon, Arbitrum, Base, BNB Chain.
 ___
 
 ### Q: If you are integrating tokens, are you allowing only whitelisted tokens to work with the codebase or any complying with the standard? Are they assumed to have certain properties, e.g. be non-reentrant? Are there any types of [weird tokens](https://github.com/d-xo/weird-erc20) you want to integrate?
-Only tokens inside ZetaChain supported assets list will be integrated.
+The project only integrate tokens inside ZetaChain supported asset list.
 
-Please refer to: https://www.zetachain.com/docs/developers/tokens/zrc20/#supported-assets
+For token supported, please refer to: https://www.zetachain.com/docs/developers/tokens/zrc20/#supported-assets
 ___
 
 ### Q: Are there any limitations on values set by admins (or other roles) in the codebase, including restrictions on array lengths?
 Owner and Bot are trusted.
-EddyTreasurySafe is trusted to collect the fees correctly.
-
+EddyTreasurySafe is only trusted to collect the fees correctly.
 ___
 
 ### Q: Are there any limitations on values set by admins (or other roles) in protocols you integrate with, including restrictions on array lengths?
-No
+No.
 ___
 
 ### Q: Is the codebase expected to comply with any specific EIPs?
-No
+No.
 ___
 
 ### Q: Are there any off-chain mechanisms involved in the protocol (e.g., keeper bots, arbitrage bots, etc.)? We assume these mechanisms will not misbehave, delay, or go offline unless otherwise specified.
-Refund bot collets those refunds where the wallet address is not an EOA and process the refund to receiver manually.
+If the receiver of refund info is not an EOA address, refund bots collect the tokens and process the refund manually.
 ___
 
 ### Q: What properties/invariants do you want to hold even if breaking them has a low/unknown impact?
-No
+No.
 ___
 
 ### Q: Please discuss any design choices you made.
-This project a cross-chain DEX, supporting both same-chain and cross-chain swaps. In addition to the common EVM chains, the cross-chain swaps involving Bitcoin and Solana are also supported. It integrates DODO Router for on-chain liquidity routing and leverages ZetaChain’s cross-chain infrastructure for cross-chain token transfer. The contracts alse implement ZetaChain onRevert and onAbort functions to deal with revert transactions.
+This project is a cross-chain DEX supporting both same-chain and cross-chain swaps. It integrates DODO Router for token swap. It applies ZetaChain's cross-chain infrastructure to handle token cross-chaining. It also uses ZetaChain's onRevert and onAbort functions to handle failed transactions. 
 
-Please refer to: https://www.zetachain.com/docs/developers/chains/zetachain/#revert-transactions
+For onRevert and onAbort logics, please refer to: https://www.zetachain.com/docs/developers/chains/zetachain/#revert-transactions
 ___
 
 ### Q: Please provide links to previous audits (if any).
-None
+None.
 ___
 
 ### Q: Please list any relevant protocol resources.
@@ -53,7 +52,7 @@ https://www.zetachain.com/docs/
 ___
 
 ### Q: Additional audit information.
-None
+None.
 
 
 # Audit scope
