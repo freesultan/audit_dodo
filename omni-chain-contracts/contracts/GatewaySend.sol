@@ -13,11 +13,11 @@ import "./libraries/SwapDataHelperLib.sol";
 
 contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address constant _ETH_ADDRESS_ = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    uint256 public globalNonce;
+    uint256 public globalNonce; //@>i increment with each crosschain tx
     uint256 public gasLimit;
     address public DODORouteProxy;
     address public DODOApprove;
-    GatewayEVM public gateway;
+    GatewayEVM public gateway; //@>i Entry point to ZetaChain's cross-chain messaging system
     
     event EddyCrossChainRevert(
         bytes32 externalId,
@@ -96,9 +96,12 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function setGasLimit(uint256 _gasLimit) external onlyOwner {
         gasLimit = _gasLimit;
     }
-
+ 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+ //======================================================================
 
+
+    //@>q can anyone exploit this pure function? who use this calcualtions?
     function concatBytes(bytes32 a, bytes memory b) public pure returns (bytes memory) {
         bytes memory result = new bytes(32 + b.length);
         uint k = 0;
@@ -110,7 +113,7 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
         return result;
     }
-
+    //@>i decode encoded crosschain messages
     function decodePackedMessage(
         bytes calldata message
     ) internal pure returns (
@@ -139,7 +142,7 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         (fromToken, toToken, swapDataB) = decodePackedData(crossChainData);
     }
-
+    //@>i decode swap data
     function decodePackedData(bytes calldata data) internal pure returns (
         address tokenA,
         address tokenB,
@@ -157,10 +160,13 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
+    //@>i Generates unique transaction ID	
     function _calcExternalId(address sender) internal view returns (bytes32 externalId) {
+        //@>q can this abi.encodePacked() lead to a collision or same ids for different tx
         externalId = keccak256(abi.encodePacked(address(this), sender, globalNonce, block.timestamp));
     }
 
+  //@>i handles eth deposit to gatway
     function _handleETHDeposit(
         address targetContract,
         uint256 amount,
@@ -173,7 +179,8 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             revertOptions
         );
     }
-
+    
+    //@>i handles erc20 token deposit to gateway
     function _handleERC20Deposit(
         address targetContract,
         uint256 amount,
@@ -182,7 +189,7 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         RevertOptions memory revertOptions
     ) internal {
         IERC20(asset).approve(address(gateway), amount);
-
+       //@>i call zetachain gateway
         gateway.depositAndCall(
             targetContract,
             amount,
@@ -191,7 +198,9 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             revertOptions
         );
     }
+  
 
+    //@>i Performs token swap via DODO	
     function _doMixSwap(bytes calldata swapData) internal returns (uint256) {
         MixSwapParams memory params = SwapDataHelperLib.decodeCompressedMixSwapParams(swapData);
 
@@ -215,6 +224,8 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         );
     }
 
+
+    //@>i Initiates cross-chain transfer with swap
     function depositAndCall(
         address fromToken,
         uint256 amount,
@@ -283,7 +294,9 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             message
         );
     }
-
+   
+   //@>i Initiates direct cross-chain transfer without swap	
+   //@>q as this function doesn't limit the payload, can someone use a big payload and disrupt the protocol?
     function depositAndCall(
         address targetContract,
         uint256 amount,
@@ -292,23 +305,28 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         bytes calldata payload
     ) public payable {
         globalNonce++;
+        //@>i the unique ID across all chains
         bytes32 externalId = _calcExternalId(msg.sender);
+
         bool isETH = (asset == _ETH_ADDRESS_);
+
         bytes memory message = concatBytes(externalId, payload);
 
         RevertOptions memory revertOptions = RevertOptions({
-            revertAddress: address(this),
+            revertAddress: address(this), //@>i refund is go to this gateway and then in onrevert transfered to user
             callOnRevert: true,
             abortAddress: targetContract,
             revertMessage: bytes.concat(externalId, bytes20(msg.sender)),
             onRevertGasLimit: gasLimit
         });
 
+        //@>audit if someone send a big amount of eth but determines only a tiny amount and if the fee is calculated based on the amount, user can avoid fees. but we should see what happens to the msg.value sent
+
         if (isETH) {
             require(msg.value >= amount, "INSUFFICIENT AMOUNT: ETH NOT ENOUGH");
             _handleETHDeposit(
                 targetContract, 
-                msg.value,
+                msg.value, //@>q why they used msg.value instead of amount?
                 message, 
                 revertOptions
             );
@@ -325,7 +343,7 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
                 revertOptions
             );
         }
-
+        //@>i use externalId to explore the tx
         emit EddyCrossChainSend(
             externalId,
             dstChainId,
@@ -338,6 +356,8 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         );
     }
 
+
+   //@>i Receives and processes incoming cross-chain messages	
     function onCall(
         MessageContext calldata /*context*/,
         bytes calldata message
@@ -390,9 +410,12 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
      * @param context Revert context
      * @dev Only the gateway can call this function
      */
+    //@>i is called to refund the locked sent amount 
     function onRevert(RevertContext calldata context) external onlyGateway {
         bytes32 externalId = bytes32(context.revertMessage[0:32]);
         address sender = address(uint160(bytes20(context.revertMessage[32:])));
+
+        //@>i transfer refund amount - fee of the context from this to sender
         TransferHelper.safeTransfer(context.asset, sender, context.amount);
         
         emit EddyCrossChainRevert(
