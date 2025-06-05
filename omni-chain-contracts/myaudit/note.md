@@ -1,5 +1,5 @@
 ## this seems to be a dex
-
+- to submit in sherlock: root cause, impact, attack path , Poc if it is complicated
 ### GatewaySend 
 DepositAndcall() public
 
