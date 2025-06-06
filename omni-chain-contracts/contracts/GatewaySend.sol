@@ -114,6 +114,12 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return result;
     }
     //@>i decode encoded crosschain messages
+    /* @>i packedMessage = crosschainData(need to be unpacked) + other data
+    message:
+    [externalId: 32 bytes][outputAmount: 32 bytes][receiverLen: 2 bytes][crossChainDataLen: 2 bytes][receiver: variable][crossChainData: variable]
+    crosschaindata:
+    [tokenA: 20 bytes][tokenB: 20 bytes][swapDataB: remaining bytes]
+    */
     function decodePackedMessage(
         bytes calldata message
     ) internal pure returns (
@@ -127,14 +133,15 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint16 receiverLen;
         uint16 crossChainDataLen;
         bytes calldata crossChainData;
-
+        //@>q how does calldata load work? can read beyond the bounds of calldata? no verification of message before loading
         assembly {
             externalId := calldataload(message.offset) // first 32 bytes
             outputAmount := calldataload(add(message.offset, 32)) // next 32 bytes
             receiverLen := shr(240, calldataload(add(message.offset, 64))) // 2 bytes
             crossChainDataLen := shr(240, calldataload(add(message.offset, 66))) // 2 bytes
         }
-
+        //@>audit If receiverLen or crossChainDataLen are manipulated, could cause out-of-bounds access
+        //@>audit No validation that offset + receiverLen or offset + crossChainDataLen are within bounds
         uint offset = 68; // starting point of receiver
         receiver = message[offset : offset + receiverLen];
         offset += receiverLen;
@@ -148,6 +155,10 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         address tokenB,
         bytes calldata swapDataB
     ) {
+
+        //@>audit Assumes data is at least 40 bytes long with no explicit check
+        //@>audit No validation that resulting addresses are valid
+
         assembly {
             tokenA := shr(96, calldataload(data.offset))
             tokenB := shr(96, calldataload(add(data.offset, 20)))
