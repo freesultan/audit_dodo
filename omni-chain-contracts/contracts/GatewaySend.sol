@@ -235,8 +235,12 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint32 dstChainId,
         bytes calldata payload
     ) public payable {
-        globalNonce++;
+
+        globalNonce++; //@>q is this global in this contract and all transactions in this contract?
+        //@>q can anything bad happens when we first increment this globalNonce?
+
         bytes32 externalId = _calcExternalId(msg.sender);
+
         bool fromIsETH = (fromToken == _ETH_ADDRESS_);
 
         // Handle input token
@@ -358,6 +362,8 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
 
    //@>i Receives and processes incoming cross-chain messages	
+   //@>q what are devs assumptions in this funcion? 
+   //@>i gateways are trusted
     function onCall(
         MessageContext calldata /*context*/,
         bytes calldata message
@@ -374,8 +380,10 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         bool fromIsETH = (fromToken == _ETH_ADDRESS_);
         bool toIsETH = (toToken == _ETH_ADDRESS_);
         address evmWalletAddress = address(bytes20(recipient));
-
+        //@>i if it is ETH, it is send with the function call trough msg.value
+        //@>audit there is no check if received value == amount 
         if(!fromIsETH) {
+            //@>q does the this contract has the approval for transfer from zeta gateway to himeself?
             IERC20(fromToken).transferFrom(msg.sender, address(this), amount);
         }
 
@@ -389,6 +397,7 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if(toIsETH) {
             payable(evmWalletAddress).transfer(outputAmount);
         } else {
+            //@>audit: should use safetransfer
             IERC20(toToken).transfer(evmWalletAddress, outputAmount);
         }
         
