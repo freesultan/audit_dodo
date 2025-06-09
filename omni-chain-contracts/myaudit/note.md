@@ -18,6 +18,8 @@ onCall() , onRevert() onlyGateway:Zetachain gateways like GatewayEVM, GatewayZEV
 mixswap()
 
 ### GatewayEVM and GateWayZEVM
+- evm chains (gatewaySend) 
+- zetachain (GatewayTransferNative,GatewayCrossChain,GateWayZEVM)
 
 
 
@@ -30,3 +32,7 @@ mixswap()
 ### simple flow
 user > GatewaySend::depositAndCall()on chain A > zetachain > GatewaySend::onCall() on Chain B > if revert: GateWaySend::onRevert() on chain A
 
+### ==============================================================
+## GatewayTransferNative 
+- is simple than GatewayCrossChain which is from zetachain to other chains
+- is to zetachain native

@@ -120,6 +120,8 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     crosschaindata:
     [tokenA: 20 bytes][tokenB: 20 bytes][swapDataB: remaining bytes]
     */
+
+   //@>audit silent corruption - unexpected values might pass through the system without triggering errors until they cause downstream failures that are difficult to diagnose
     function decodePackedMessage(
         bytes calldata message
     ) internal pure returns (
@@ -134,14 +136,14 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint16 crossChainDataLen;
         bytes calldata crossChainData;
         //@>q how does calldata load work? can read beyond the bounds of calldata? no verification of message before loading
+        //@>i slicing calldata. offset is 0 probably. calldataload will load 32 bytes
         assembly {
             externalId := calldataload(message.offset) // first 32 bytes
             outputAmount := calldataload(add(message.offset, 32)) // next 32 bytes
             receiverLen := shr(240, calldataload(add(message.offset, 64))) // 2 bytes
             crossChainDataLen := shr(240, calldataload(add(message.offset, 66))) // 2 bytes
         }
-        //@>audit If receiverLen or crossChainDataLen are manipulated, could cause out-of-bounds access
-        //@>audit No validation that offset + receiverLen or offset + crossChainDataLen are within bounds
+         //@>audit No validation that offset + receiverLen or offset + crossChainDataLen are within bounds
         uint offset = 68; // starting point of receiver
         receiver = message[offset : offset + receiverLen];
         offset += receiverLen;
@@ -321,7 +323,7 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ) public payable {
         globalNonce++;
         //@>i the unique ID across all chains
-        bytes32 externalId = _calcExternalId(msg.sender);
+        bytes32 externalId = _calcExternalId(msg.sender); 
 
         bool isETH = (asset == _ETH_ADDRESS_);
 
@@ -387,6 +389,8 @@ contract GatewaySend is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             address toToken, 
             bytes calldata swapData
         ) = decodePackedMessage(message);
+
+        //@>audit The protocol should implement explicit length validation and address format checks before executing any asset transfers.
 
         bool fromIsETH = (fromToken == _ETH_ADDRESS_);
         bool toIsETH = (toToken == _ETH_ADDRESS_);

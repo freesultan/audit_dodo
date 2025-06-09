@@ -117,7 +117,7 @@ library SwapDataHelperLib {
 
         uint16 senderLen;
         uint16 receiverLen;
-
+        
         assembly {
             senderLen := shr(240, calldataload(add(message.offset, offset)))         // offset + 0
             receiverLen := shr(240, calldataload(add(message.offset, add(offset, 2)))) // offset + 2
